@@ -58,6 +58,9 @@ class StepImpl(object):
         code = self.func.func_code
         return "%s:%d" % (code.co_filename, code.co_firstlineno)
 
+    def __unicode__( self ):
+        return u'%s:%r' % ( self.get_location(), self.spec )
+
 class HookImpl(object):
     
     def __init__(self, cb_type, func, tags=[]):
@@ -92,7 +95,7 @@ class TransformImpl(object):
             return self.func(*match.groups())
     
     def __call__(self, *args, **kwargs):
-        self.func(*args, **kwargs)
+        return self.func(*args, **kwargs)
 
 class NamedTransformImpl( TransformImpl ):
 
