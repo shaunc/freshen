@@ -14,6 +14,7 @@
   background: Background
   scenario: Scenario
   scenario_outline: Scenario Outline
+  joined_with: Joined With
   examples: Examples
   given: Given
   when: When

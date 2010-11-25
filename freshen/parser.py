@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import textwrap
+from itertools import product
 
 try:
     from os.path import relpath
@@ -87,7 +88,7 @@ class Scenario(object):
 
 class ScenarioOutline(Scenario):
 
-    def __init__(self, tags, name, steps, examples):
+    def __init__(self, tags, name, steps, examples ):
         self.examples = examples
         super(ScenarioOutline, self).__init__(tags, name, steps)
 
@@ -149,6 +150,25 @@ class Table(object):
         for row in self.rows:
             yield dict(zip(self.headings, row))
 
+def with_table_fn( heading, table ):
+    return table
+
+def create_joined_table( table, *with_tables ):
+    for joined in with_tables:
+        table.headings.extend( joined.headings )
+        table.rows = [
+            reduce( lambda a, b: a + b, seg ) 
+            for seg in product( table.rows, joined.rows )
+            ]
+    return table
+
+def create_joined_example( example, *with_examples ):
+    for joined in with_examples:
+        if joined.name.strip(): 
+            example.name += ' + ' + joined.name
+    tables = [ ex.table for ex in with_examples ]
+    example.table = create_joined_table( example.table, *tables )
+    return example
 
 def grammar(fname, l, convert=True, base_line=0):
     # l = language
@@ -228,6 +248,10 @@ def grammar(fname, l, convert=True, base_line=0):
                                          Suppress(empty_not_n), delim="|") +
                            Suppress("|"))
     table          = table_row + Group(OneOrMore(table_row))
+    
+    with_table     = or_words(['joined_with'], section_header) + table
+    
+    joined_table   = table + ZeroOrMore( with_table )
 
     m_string       = (Suppress(Literal('"""') + lineEnd).setWhitespaceChars(" \t") +
                       SkipTo((lineEnd +
@@ -238,15 +262,20 @@ def grammar(fname, l, convert=True, base_line=0):
     step_name      = or_words(['given', 'when', 'then', 'and', 'but'], Keyword,
                               parse_acts=[process_given_step, process_when_step, process_then_step,
                                           process_and_but_step, process_and_but_step])
-    step           = step_name + following_text + Optional(table | m_string)
+    step           = step_name + following_text + Optional( joined_table | m_string)
     steps          = Group(ZeroOrMore(step))
 
     example        = or_words(['examples'], section_header) + table
+    
+    with_example   = or_words(['joined_with'], section_header) + table
+    
+    join           = example + ZeroOrMore( with_example )
 
     background     = or_words(['background'], section_header) + steps
 
     scenario       = Group(Optional(tags)) + or_words(['scenario'], section_header) + steps
-    scenario_outline = Group(Optional(tags)) + or_words(['scenario_outline'], section_header) + steps + Group(OneOrMore(example))
+    scenario_outline = Group(Optional(tags)) + or_words(['scenario_outline'], section_header) \
+                    + steps + Group(OneOrMore(join))
 
     feature        = (Group(Optional(use_step_defs)) +
                       Group(Optional(tags)) +
@@ -261,11 +290,15 @@ def grammar(fname, l, convert=True, base_line=0):
 
     if convert:
         table.setParseAction(create_object(Table))
+        with_table.setParseAction(create_object(with_table_fn))
+        joined_table.setParseAction(create_object(create_joined_table))
         step.setParseAction(create_object(Step))
         background.setParseAction(create_object(Background))
         scenario.setParseAction(create_object(Scenario))
         scenario_outline.setParseAction(create_object(ScenarioOutline))
         example.setParseAction(create_object(Examples))
+        with_example.setParseAction(create_object(Examples))
+        join.setParseAction(create_object(create_joined_example))
         feature.setParseAction(create_object(Feature))
 
     return feature, steps
