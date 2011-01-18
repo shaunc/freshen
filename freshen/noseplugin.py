@@ -27,6 +27,9 @@ class ExceptionWrapper(Exception):
     def __init__(self, e, step):
         self.e = e
         self.step = step
+        
+    def __str__(self):
+        return 'In %s: %s' % (str(self.step), str(self.e))
 
 class FeatureSuite(object):
 
