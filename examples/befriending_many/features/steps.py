@@ -6,13 +6,22 @@ from itertools import combinations
 def transform_user(username):
     return find_user(username)
 
-@NamedTransform( '{user list}', r'([\w, ]+)' )
+@NamedTransform( 
+        '{user list}', 
+        r'(users? \w+(?:, \w+)*(?: and \w+)?)', 
+        r'users? (\w+(?:, \w+)*(?: and \w+)?)' )
 def transform_user_list( user_list ):
+    user_list = user_list.replace( ' and ', ', ')
     return [ find_user( name.strip() ) for name in user_list.split( ',' ) ]
 
 @When(r'^(user \w+) befriends (user \w+)$')
 def befriend(user, friend):
     user.befriend(friend)
+
+@When(r'^(user \w+) befriends: {user list}$')
+def befriend_list(user, friends):
+    for friend in friends:
+        user.befriend(friend)
 
 @Then(r'^(user \w+) should be friends with (user \w+)$')
 def check_friends(user, friend):

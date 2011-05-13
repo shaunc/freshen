@@ -165,12 +165,17 @@ def with_table_fn( heading, table ):
     return table
 
 def create_joined_table( table, *with_tables ):
+#    from sys import stderr
     for joined in with_tables:
+#        print >>stderr, joined.headings
+#        stderr.flush()
         table.headings.extend( joined.headings )
         table.rows = [
             reduce( lambda a, b: a + b, seg ) 
             for seg in product( table.rows, joined.rows )
             ]
+#    print >>stderr, table.rows
+#    stderr.flush()
     return table
 
 def create_joined_example( example, *with_examples ):

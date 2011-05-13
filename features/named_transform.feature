@@ -4,9 +4,9 @@ Feature: Named step argument transforms
     When I run nose examples/befriending_many
     Then it should pass with
         """
-        .
+        ..
         ----------------------------------------------------------------------
-        Ran 1 test in {time}
+        Ran 2 tests in {time}
 
         OK
         """

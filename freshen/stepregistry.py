@@ -5,12 +5,25 @@ import re
 import os
 import sys
 import traceback
-from itertools import chain
+from itertools import chain, izip
 
 __all__ = ['Given', 'When', 'Then', 'Before', 'After', 'AfterStep', 'Transform', 'NamedTransform']
 __unittest = 1
 
 log = logging.getLogger('freshen')
+
+class WithReprMixin( object ):
+    '''
+    print representation of self as class name wrapper around string form
+    '''
+    def __str__( self ):
+        # prevent recusion: override this to use own str in repr
+        return object.__repr__( self )
+    
+    def __repr__( self ):
+        if self.__str__.im_func == WithReprMixin:
+            return super( self, WithReprMixin ).__repr__()
+        return '<%s: %s>' % ( self.__class__.__name__, str( self ) )
 
 class AmbiguousStepImpl(Exception):
     
@@ -28,18 +41,45 @@ class UndefinedStepImpl(Exception):
         self.step = step
         super(UndefinedStepImpl, self).__init__('"%s" # %s' % (step.match, step.source_location()))
 
-class StepImpl(object):
+class StepImpl(WithReprMixin):
+    '''
+    wrapper for step implementation
+    
+    manages matching step with implementation,
+    replacing named transforms in step, and matching
+    arguments
+    
+    .. note: we assume that the transform contains exactly one
+    regex group.
+    '''
     
     def __init__(self, step_type, spec, func):
         self.step_type = step_type
         self.spec = spec
         self.func = func
         self.named_transforms = []
+        self.named_transform_positions = []
 
+    #: match start of (unnamed) group in regular expression
+    group_start = re.compile( r'(?:(?:(?<!\\)(?:\\\\)*)|(?:^)|(?:[^\\]))\((?!\?)')
+    
     def apply_named_transform( self, name, pattern, transform ):
-        if name in self.spec:
-            self.spec = self.spec.replace( name, pattern )
+        while name in self.spec:
+            # find index of regex group name will become
+            iname = self.spec.index( name )
+            iprev_groups = len( self.group_start.findall( self.spec[ :iname ] ) )
+            
+            # move stored indexes which come after to reflect
+            # new group before.
+            for i, io_prev in enumerate( self.named_transform_positions ):
+                if io_prev >= iprev_groups:
+                    self.name_transform_positions[ i ] += 1
+                    
+            # record transform match
+            self.named_transform_positions.append( iprev_groups )
+            self.spec = self.spec.replace( name, pattern, 1 )
             self.named_transforms.append( transform )
+            
             if hasattr( self, 're_spec' ):
                 del self.re_spec
     
@@ -58,10 +98,10 @@ class StepImpl(object):
         code = self.func.func_code
         return "%s:%d" % (code.co_filename, code.co_firstlineno)
 
-    def __unicode__( self ):
-        return u'%s:%r' % ( self.get_location(), self.spec )
+    def __str__( self ):
+        return '%s:%r' % ( self.get_location(), self.spec )
 
-class HookImpl(object):
+class HookImpl(WithReprMixin):
     
     def __init__(self, cb_type, func, tags=[]):
         self.cb_type = cb_type
@@ -79,7 +119,7 @@ class HookImpl(object):
     def __call__(self, *args, **kwargs):
         self.func(*args, **kwargs)
 
-class TransformImpl(object):
+class TransformImpl(WithReprMixin):
     
     def __init__(self, spec_fragment, func):
         self.spec_fragment = spec_fragment
@@ -98,6 +138,9 @@ class TransformImpl(object):
     
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
+    
+    def __str__( self ):
+        return self.spec_fragment
 
 class NamedTransformImpl( TransformImpl ):
 
@@ -109,6 +152,9 @@ class NamedTransformImpl( TransformImpl ):
 
     def apply_to_step( self, step ):
         step.apply_named_transform( self.name, self.in_pattern, self )
+        
+    def __str__( self ):
+        return u'%s:->%s' % ( self.name, self.out_pattern ) 
 
 class StepImplLoader(object):
 
@@ -195,8 +241,16 @@ class StepImplRegistry(object):
         for step in chain( *self.steps.values() ):
             named_transform.apply_to_step( step )
     
-    def _apply_transforms(self, arg, step):
-        for transform in chain( step.named_transforms, self.transforms ):
+    def _apply_transforms(self, iarg, arg, step):
+        nt_iter = izip( step.named_transforms, step.named_transform_positions )
+
+        for transform, ipos in nt_iter:
+            if iarg == ipos:
+                assert transform.is_match( arg ), \
+                    "named transform found at position %d doesn't match" % iarg
+                return transform.transform_arg( arg )
+        
+        for transform in self.transforms:
             if transform.is_match(arg):
                 return transform.transform_arg(arg)
         return arg
@@ -218,7 +272,9 @@ class StepImplRegistry(object):
                 if result:
                     raise AmbiguousStepImpl(step, result[0], si)
                 
-                args = [self._apply_transforms(arg, si) for arg in matches.groups()]
+                args = [
+                    self._apply_transforms(iarg, arg, si) 
+                    for iarg, arg in enumerate( matches.groups() )]
                 result = si, args
         
         if not result:
