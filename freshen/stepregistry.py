@@ -73,7 +73,7 @@ class StepImpl(WithReprMixin):
             # new group before.
             for i, io_prev in enumerate( self.named_transform_positions ):
                 if io_prev >= iprev_groups:
-                    self.name_transform_positions[ i ] += 1
+                    self.named_transform_positions[ i ] += 1
                     
             # record transform match
             self.named_transform_positions.append( iprev_groups )
