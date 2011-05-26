@@ -50,7 +50,7 @@ class StepImpl(WithReprMixin):
     arguments
     
     .. note: we assume that the transform contains exactly one
-    regex group.
+      regex group.
     '''
     
     def __init__(self, step_type, spec, func):
@@ -63,7 +63,12 @@ class StepImpl(WithReprMixin):
     #: match start of (unnamed) group in regular expression
     group_start = re.compile( r'(?:(?:(?<!\\)(?:\\\\)*)|(?:^)|(?:[^\\]))\((?!\?)')
     
-    def apply_named_transform( self, name, pattern, transform ):
+    def substitute_named_transform( self, name, pattern, transform ):
+        '''
+        substitute into the step specification the pattern for the named transform,
+        for each occurence of the name in the spec; keep track of the group
+        number where the substitution is performed.
+        '''
         while name in self.spec:
             # find index of regex group name will become
             iname = self.spec.index( name )
@@ -111,7 +116,7 @@ class HookImpl(WithReprMixin):
         self.order = 0
     
     def __repr__(self):
-        return "<Hook: @%s %s(...)>" % (self.cb_type, self.func.func_name)
+        return "<Hook: @%s:%d %s(...)>" % (self.cb_type, self.order, self.func.func_name)
     
     def run(self, scenario):
         self.func(scenario)
@@ -151,7 +156,7 @@ class NamedTransformImpl( TransformImpl ):
         self.out_pattern = out_pattern
 
     def apply_to_step( self, step ):
-        step.apply_named_transform( self.name, self.in_pattern, self )
+        step.substitute_named_transform( self.name, self.in_pattern, self )
         
     def __str__( self ):
         return u'%s:->%s' % ( self.name, self.out_pattern ) 
@@ -282,9 +287,20 @@ class StepImplRegistry(object):
         return result
     
     def get_hooks(self, cb_type, tags=[]):
-        hooks = [h for h in self.hooks[cb_type] if self.tag_matcher_class(h.tags).check_match(tags)]
-        hooks.sort(cmp=lambda x,y: cmp(x.order, y.order))
-        return hooks
+        '''
+        get hooks for the given callback type which corrspond
+        to the passed in scenario tags, sorted in order dictated
+        by the scenario tags. 
+        '''
+        hooks = []
+        for h in self.hooks[ cb_type ]:
+            tag_matcher = self.tag_matcher_class( h.tags )
+            if not tag_matcher.check_match( tags ): continue
+            order = tag_matcher.get_min_order( tags )
+            hooks.append( ( order, h ) )
+            
+        hooks.sort()
+        return [ hh[ 1 ] for hh in hooks ]
 
 
 def step_decorator(step_type):

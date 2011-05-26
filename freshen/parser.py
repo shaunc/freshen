@@ -29,7 +29,16 @@ except Exception, e:
 
 log = logging.getLogger('freshen')
 
-class Feature(object):
+class WithOrderedTags( object ):
+    '''
+    mixin, assigning order to tags
+    '''
+    
+    def init_tag_order(self):
+        for i, tag in enumerate( self.tags ):
+            tag.order = self.tag_start + i
+
+class Feature( WithOrderedTags ):
 
     def __init__(self, use_step_defs, tags, name, description, background, scenarios):
         self.use_step_defs = use_step_defs
@@ -38,13 +47,17 @@ class Feature(object):
         self.description = description
         self.scenarios = scenarios
         self.background = None
+        self.tag_start = 0
 
+        self.init_tag_order()
+        
         if background != []:
             self.background = background[0]
 
         for sc in scenarios:
             sc.feature = self
             sc.background = self.background
+            sc.init_tag_order()
 
     def __repr__(self):
         return '<Feature "%s": %d scenario(s)>' % (self.name, len(self.scenarios))
@@ -71,19 +84,38 @@ class Background(object):
         for step in self.steps:
             yield step
 
-class Scenario(object):
+class Tag( str ):
+    '''
+    name of tag, together with order and whether feature tag or scenario
+    
+    '''
+    def __init__(self, *args, **kw ):
+        self.order = 0
+        super( Tag, self ).__init__( *args, **kw )
+        
+    def __eq__( self, lhs ):
+        # to avoid having to strip @, we allow match
+        # whether or not present
+        return self.lstrip( '@' ) == lhs.lstrip( '@' )
+
+class Scenario( WithOrderedTags ):
 
     def __init__(self, tags, name, steps):
         self.tags = tags
         self.name = name
         self.steps = steps
         self.background = None
+        self.tag_start = 0
+        
+    def init_tag_order( self ):
+        self.tag_start = len( self.feature.tags )
+        super( Scenario, self ).init_tag_order()
 
     def __repr__(self):
         return '<Scenario "%s">' % self.name
 
     def get_tags(self):
-        return self.tags + self.feature.tags
+        return self.feature.tags + self.tags
 
     def iterate(self):
         yield self
@@ -165,17 +197,12 @@ def with_table_fn( heading, table ):
     return table
 
 def create_joined_table( table, *with_tables ):
-#    from sys import stderr
     for joined in with_tables:
-#        print >>stderr, joined.headings
-#        stderr.flush()
         table.headings.extend( joined.headings )
         table.rows = [
             reduce( lambda a, b: a + b, seg ) 
             for seg in product( table.rows, joined.rows )
             ]
-#    print >>stderr, table.rows
-#    stderr.flush()
     return table
 
 def create_joined_example( example, *with_examples ):
@@ -233,7 +260,9 @@ def grammar(fname, l, convert=True, base_line=0):
         return textwrap.dedent(s[0])
 
     def process_tag(s):
-        return s[0].strip("@")
+        label = s[0].strip("@")
+        return Tag( label )
+        
 
     def or_words(words, kind, suffix='', parse_acts=None):
         elements = []

@@ -36,18 +36,38 @@ class StepsRunner(object):
 
 
 class TagMatcher(object):
+    '''
+    matches hook tags with tags from scenario or feature.
+    
+    Note that the latter are :class:`freshen.parser.Tag` objects.
+    '''
     
     def __init__(self, tags):
         self.include_tags = set(t.lstrip("@") for t in tags if not t.startswith("~"))
         self.exclude_tags = set(t.lstrip("~@") for t in tags if t.startswith("~"))
 
-    def check_match(self, tagset):
-        tagset = set(t.lstrip("@") for t in tagset)
+    def get_matching_set(self, tagset ):
+        tagset = set( tagset )
         if tagset & self.exclude_tags:
-            return False
-        
-        return not self.include_tags or (tagset & self.include_tags)
+            return set()
+        if not self.include_tags:
+            return tagset
+        # include_tags are strings, whereas tagset are Tags,
+        # which we want to return, so we cant use set intersection
+        return set( t for t in tagset if t in self.include_tags )
 
+    def check_match(self, tagset):
+        return bool( self.get_matching_set( tagset ) )
+    
+    def get_min_order(self, tagset ):
+        '''
+        return the minimal order from matching tags.
+        
+        Is an error if there are no matching tags.
+        '''
+        matching = self.get_matching_set( tagset )
+        return min( tag.order for tag in matching )
+        
 
 class Language(object):
     def __init__(self, mappings, default_mappings=None):
