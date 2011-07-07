@@ -92,7 +92,7 @@ class StepImpl(WithReprMixin):
         self.func(*args, **kwargs)
 
     def __call__(self, *args, **kwargs):
-        self.func(*args, **kwargs)
+        return self.func(*args, **kwargs)
     
     def match(self, match):
         if not hasattr( self, 're_spec' ):
@@ -122,7 +122,7 @@ class HookImpl(WithReprMixin):
         self.func(scenario)
     
     def __call__(self, *args, **kwargs):
-        self.func(*args, **kwargs)
+        return self.func(*args, **kwargs)
 
 class TransformImpl(WithReprMixin):
     
@@ -247,6 +247,8 @@ class StepImplRegistry(object):
             named_transform.apply_to_step( step )
     
     def _apply_transforms(self, iarg, arg, step):
+        # deal with missing "optional" arguments (coded in "?" block in re)
+        if arg is None: return None
         nt_iter = izip( step.named_transforms, step.named_transform_positions )
 
         for transform, ipos in nt_iter:
