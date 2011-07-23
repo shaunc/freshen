@@ -134,27 +134,30 @@ class FreshenNosePlugin(Plugin):
         return filename.endswith(".feature") or None
     
     def loadTestsFromFile(self, filename, indexes=[]):
-        log.debug("Loading from file %s" % filename)
-        
-        step_registry = StepImplRegistry(TagMatcher)
-        try:
-            feat = load_feature(filename, self.language)
-            path = os.path.dirname(filename)
-            self.impl_loader.load_steps_impl(step_registry, path, feat.use_step_defs)
-        except ParseException, e:
-            ec, ev, tb = sys.exc_info()
-            yield Failure(ParseException, ParseException(e.pstr, e.loc, e.msg + " in %s" % filename), tb)
-            return
-        
-        cnt = 0
-        ctx = FeatureSuite()
-        for i, sc in enumerate(feat.iter_scenarios()):
-            if (not indexes or (i + 1) in indexes):
-                if self.tagmatcher.check_match(sc.tags + feat.tags):
-                    yield FreshenTestCase(StepsRunner(step_registry), step_registry, feat, sc, ctx)
-                    cnt += 1
-        
-        if not cnt:
+        if self.wantFile( filename ):
+            log.debug("Loading from file %s" % filename)
+            
+            step_registry = StepImplRegistry(TagMatcher)
+            try:
+                feat = load_feature(filename, self.language)
+                path = os.path.dirname(filename)
+                self.impl_loader.load_steps_impl(step_registry, path, feat.use_step_defs)
+            except ParseException, e:
+                ec, ev, tb = sys.exc_info()
+                yield Failure(ParseException, ParseException(e.pstr, e.loc, e.msg + " in %s" % filename), tb)
+                return
+            
+            cnt = 0
+            ctx = FeatureSuite()
+            for i, sc in enumerate(feat.iter_scenarios()):
+                if (not indexes or (i + 1) in indexes):
+                    if self.tagmatcher.check_match(sc.tags + feat.tags):
+                        yield FreshenTestCase(StepsRunner(step_registry), step_registry, feat, sc, ctx)
+                        cnt += 1
+            
+            if not cnt:
+                yield False
+        else: 
             yield False
     
     def loadTestsFromName(self, name, _=None):
