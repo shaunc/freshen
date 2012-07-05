@@ -46,6 +46,9 @@ class ExceptionWrapper( Exception ):
 
 class FeatureSuite( object ):
 
+    def __init__( self, filename ):
+        self.filename = filename
+
     def setUp( self ):
         #log.debug("Clearing feature context")
         ftc.clear()
@@ -198,7 +201,7 @@ class FreshenNosePlugin( Plugin ):
             return
 
         cnt = 0
-        ctx = FeatureSuite()
+        ctx = FeatureSuite( filename )
         for i, sc in enumerate( feat.iter_scenarios() ):
             if ( not indexes or ( i + 1 ) in indexes ):
                 if self.tagmatcher.check_match( sc.tags + feat.tags ):
