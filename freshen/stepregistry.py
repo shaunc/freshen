@@ -170,6 +170,9 @@ class StepImplLoadException( Exception ):
 
 
 class StepImplLoader( object ):
+    '''
+    load step implementations, keeping track of modules already read
+    '''
 
     def __init__( self ):
         self.modules = {}

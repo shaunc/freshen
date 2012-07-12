@@ -45,9 +45,20 @@ class ExceptionWrapper( Exception ):
         return "".join( traceback.format_exception( *self.e ) )
 
 class FeatureSuite( object ):
+    '''
+    Grouping context for nosetests.
+    
+    Provide access to filename loaded from and list of tests for
+    the benefit of other nose plugins.
+    '''
 
-    def __init__( self, filename ):
+    def __init__( self, filename, indexes ):
         self.filename = filename
+        self.indexes = indexes
+        self.tests = []
+
+    def add_test( self, test ):
+        self.tests.append( test )
 
     def setUp( self ):
         #log.debug("Clearing feature context")
@@ -76,6 +87,7 @@ class FreshenTestCase( unittest.TestCase ):
         self.step_runner = step_runner
 
         self.description = feature.name + ": " + scenario.name
+        feature_suite.add_test( self )
         super( FreshenTestCase, self ).__init__()
 
     def setUp( self ):
@@ -201,7 +213,7 @@ class FreshenNosePlugin( Plugin ):
             return
 
         cnt = 0
-        ctx = FeatureSuite( filename )
+        ctx = FeatureSuite( filename, indexes )
         for i, sc in enumerate( feat.iter_scenarios() ):
             if ( not indexes or ( i + 1 ) in indexes ):
                 if self.tagmatcher.check_match( sc.tags + feat.tags ):
