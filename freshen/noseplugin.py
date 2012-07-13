@@ -114,6 +114,11 @@ class FreshenTestCase( unittest.TestCase ):
         for hook_impl in reversed( self.step_registry.get_hooks( 'after', self.scenario.get_tags() ) ):
             hook_impl.run( self.scenario )
 
+    def id( self ):
+        feature = os.path.relpath( self.feature.src_file )
+        scenario = self.scenario.name.replace( '.', ' ' )
+        return '{}.{}'.format( feature, scenario )
+
 class FreshenErrorPlugin( ErrorClassPlugin ):
 
     enabled = True
