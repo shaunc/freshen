@@ -94,7 +94,7 @@ class StepImpl( WithReprMixin ):
         self.func( *args, **kwargs )
 
     def __call__( self, *args, **kwargs ):
-        self.func( *args, **kwargs )
+        return self.func( *args, **kwargs )
 
     def match( self, match ):
         if not hasattr( self, 're_spec' ):
