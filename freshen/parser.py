@@ -137,7 +137,10 @@ class Scenario( WithOrderedTags ):
             yield step
 
     def __eq__( self, rhs ):
-        return self.feature == rhs.feature and self.name == rhs.name
+        return self.feature == rhs.feature and self.name == rhs.name \
+            and reduce( 
+                lambda a, b: a and ( b[ 0 ].match == b[ 1 ].match ),
+                izip( self.steps, rhs.steps ), True )
 
 class ScenarioOutline( Scenario ):
 
@@ -301,7 +304,7 @@ def grammar( fname, l, convert = True, base_line = 0 ):
                            delimitedList( 
                                          CharsNotIn( "|\n" ).setParseAction( process_string ) +
                                          Suppress( empty_not_n ), delim = "|" ) +
-                           Suppress( "|" ) )
+                           Suppress( "|" ) + Suppress( empty_not_n ) )
     table = table_row + Group( OneOrMore( table_row ) )
 
     with_table = or_words( ['joined_with'], section_header ) + table
@@ -337,7 +340,7 @@ def grammar( fname, l, convert = True, base_line = 0 ):
                       or_words( ['feature'], section_header ) +
                       descr_block +
                       Group( Optional( background ) ) +
-                      Group( OneOrMore( scenario | scenario_outline ) ) )
+                      Group( OneOrMore( scenario_outline | scenario ) ) )
 
     # Ignore tags for now as they are not supported
     feature.ignore( pythonStyleComment )

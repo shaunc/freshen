@@ -64,6 +64,11 @@ class FeatureSuite( object ):
         #log.debug("Clearing feature context")
         ftc.clear()
 
+    def __str__( self ):
+        return  '{}: {}'.format( 
+            self.indexes or '',
+            '\n'.join( [ str( t ) for t in self.tests ] ) )
+
 class FreshenTestCase( unittest.TestCase ):
 
     start_live_server = True
@@ -118,6 +123,9 @@ class FreshenTestCase( unittest.TestCase ):
         feature = os.path.relpath( self.feature.src_file )
         scenario = self.scenario.name.replace( '.', ' ' )
         return '{}.{}'.format( feature, scenario )
+
+    def __str__( self ):
+        return '({})'.format( ', '.join( s.match for s in self.scenario.steps ) )
 
 class FreshenErrorPlugin( ErrorClassPlugin ):
 
