@@ -211,8 +211,15 @@ class StepImplLoader( object ):
                     mod = imp.load_module( "stepdefs_" + str( self.module_counter ), *info )
                 except:
                     exc = sys.exc_info()
-                    raise StepImplLoadException( exc )
-
+                    e_inst = exc[ 1 ]
+                    if isinstance( e_inst, ImportError ) and 'cannot import name' in e_inst.message:
+                        try:
+                            self._clean_module_for_reimport( *exc )
+                            mod = imp.load_module( "stepdefs_" + str( self.module_counter ), *info )
+                        except:
+                            raise StepImplLoadException( exc )
+                    else:
+                        raise StepImplLoadException( exc )
                 self.module_counter += 1
                 self.modules[( path, module_name )] = mod
 
@@ -226,6 +233,33 @@ class StepImplLoader( object ):
                     registry.add_named_transform( item )
                 elif isinstance( item, TransformImpl ):
                     registry.add_transform( item )
+
+    def _clean_module_for_reimport( self, exc_class, exc_inst, tb ):
+        '''
+        clean module from sys modules so as to allow re-import
+        
+        This is a messy workaround for the underlying problem that re-import
+        of steps sometimes triggers reload of 
+        '''
+        # we go to code of last frame in traceback to get statement
+        while tb.tb_next is not None:
+            tb = tb.tb_next
+        code = tb.tb_frame.f_code
+        with open( code.co_filename, 'r' ) as c_file:
+            for _ in xrange( tb.tb_lineno ):
+                line = c_file.readline()
+            line = line.strip()
+        key, line = line.split( None, 1 )
+        if key == 'import':
+            dottednames = map( lambda s: s.strip(), line.split( ',' ) )
+        elif key == 'from':
+            dottednames = [ line.replace( ' import ', '.' ) ]
+        else:
+            raise TypeError( 
+                "import error ({}) not due to conflict "
+                "or cannot resolve".format( exc_inst.message ) )
+        for dname in dottednames:
+            sys.modules.pop( dname, None )
 
 class StepImplRegistry( object ):
 
