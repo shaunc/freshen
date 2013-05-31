@@ -1,4 +1,4 @@
-#-*- coding: utf8 -*-
+# -*- coding: utf8 -*-
 
 # This line ensures that frames from this file will not be shown in tracebacks
 __unittest = 1
@@ -213,8 +213,7 @@ def create_joined_table( table, *with_tables ):
     for joined in with_tables:
         table.headings.extend( joined.headings )
         table.rows = [
-            reduce( lambda a, b: a + b, seg )
-            for seg in product( table.rows, joined.rows )
+            a + b for a, b in product( table.rows, joined.rows )
             ]
     return table
 
