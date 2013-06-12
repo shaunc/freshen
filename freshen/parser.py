@@ -181,6 +181,8 @@ class Step( object ):
         result = copy.deepcopy( self )
         for name, value in value_dict.iteritems():
             result.match = result.match.replace( "<%s>" % name, value )
+            if result.arg is not None:
+                result.arg = result.arg.replace("<%s>" % name, value)
         return result
 
 
