@@ -30,6 +30,8 @@ class Context(object):
     def clear(self):
         self.__dict__['d'] = {}
 
+    def setdefault(self, key, value ):
+        return self.__dict__['d'].setdefault( key, value )
 
 glc = Context() # Global context - never cleared
 ftc = Context() # Feature context - cleared for every feature
